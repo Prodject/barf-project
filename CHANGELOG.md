@@ -4,10 +4,77 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 ### Added
+
 ### Changed
+
 ### Deprecated
+
 ### Removed
+
 ### Fixed
+
+### Security
+
+## [0.6.0] - 2019-11-24
+### Added
+
+- Add Python 3 compatibility.
+- Add classes for managing call conventions.
+- Add hook support to the `Emulator` class.
+- Add `cconv` (calling convention) module.
+- Add `ReilCpu` tests.
+- Add `replay` tool to replay x86 execution traces.
+- Add `x86.trace` module.
+- Add `x86.helper` module.
+- Add kao's toy project solution to the `examples` folder.
+- Add flare-on 2015 challenge #2 solution to the `examples` folder.
+- Add basic symbolic execution support.
+- Add extra methods to `ReilSequence` and `ReilContainer` classes.
+- Improve hook support of the `Emulator` class.
+- Add support for `SHLD` instruction.
+
+### Changed
+
+- Refactor ARM package.
+- Refactor ARM tests.
+- Refactor x86 package.
+- Refactor x86 tests.
+- Improve `emulate-binary` example script.
+- Refactor `ReilBuilder` class.
+- Refactor instruction translators (both Intel and ARM). Group translators by category and create a module for each one.
+- Improve `Emulator` class.
+- Refactor `ReilCpu` tests.
+- Rename `bi` module to `binary`.
+- Refactor `Disassembler` class.
+- Refactor `ReilEmulatorTainter` class.
+- Refactor `ReilCpu` class.
+- Refactor `reil.helpers` module.
+- Refactor `ReilContainer` class.
+- Refactor `ReilBuilder` class.
+- Refactor `reil.tainter` module.
+- Refactor `ReilCpu` class.
+- Refactor `reil.parser` test module.
+- Refactor `reil.emulator` test module.
+- Rename `basicblock` package (and tests) to `graphs`.
+- Rename `gadget` package (and tests) to `gadgets`.
+- Rename `reilparser` module to `reil.parser`.
+- Refactor `reilemulator` module. Split module into submodules: `emulator.cpu`, `emulator.emulator`, `emulator.memory`, and `emulator.tainter`.
+- Refactor `arch.emulator` module.
+
+### Deprecated
+
+### Removed
+
+- Remove `DualInstruction` class.
+
+### Fixed
+
+- Fix `RSB` ARM instruction.
+- Fix control-flow graph rendering.
+- Fix `SHRD` translation.
+- Fix size of effective address calculation for Intel architecture.
+- Fix `SHL` and `SHR` instruction translator.
+
 ### Security
 
 ## [0.5.0] - 2017-12-18
@@ -136,7 +203,8 @@ All notable changes to this project will be documented in this file.
 ### Added
 - First release.
 
-[Unreleased]: https://github.com/programa-stic/barf-project/compare/v0.5.0...master
+[Unreleased]: https://github.com/programa-stic/barf-project/compare/v0.6.0...master
+[0.6.0]: https://github.com/programa-stic/barf-project/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/programa-stic/barf-project/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/programa-stic/barf-project/compare/v0.3...v0.4.0
 [0.3]: https://github.com/programa-stic/barf-project/compare/v0.2.1...v0.3

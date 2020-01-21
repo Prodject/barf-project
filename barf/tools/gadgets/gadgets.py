@@ -1,5 +1,3 @@
-#! /usr/bin/env python
-
 # Copyright (c) 2014, Fundacion Dr. Manuel Sadosky
 # All rights reserved.
 
@@ -24,6 +22,7 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+from __future__ import absolute_import
 from __future__ import print_function
 
 import argparse
@@ -35,7 +34,7 @@ from pygments import highlight
 from pygments.formatters import TerminalFormatter
 from pygments.lexers.asm import NasmLexer
 
-from barf.analysis.gadget.gadget import GadgetType
+from barf.analysis.gadgets.gadget import GadgetType
 from barf.barf import BARF
 
 
@@ -44,7 +43,7 @@ def filter_duplicates(candidates):
     gadgets = {}
 
     for cand in candidates:
-        asm_instrs = " ; ".join([str(dinstr.asm_instr) for dinstr in cand.instrs])
+        asm_instrs = " ; ".join([str(instr) for instr in cand.instrs])
 
         if asm_instrs not in gadgets:
             gadgets[asm_instrs] = cand
@@ -108,16 +107,16 @@ def print_gadgets_raw(gadgets, f, sort_mode, color, title, show_binary):
 
     for key in sorted(gadgets_sorted.keys()):
         for gadget in gadgets_sorted[key]:
-            asm_instrs = [str(dinstr.asm_instr) for dinstr in gadget.instrs]
+            asm_instrs = [str(instr) for instr in gadget.instrs]
 
             if color:
-                asm_instrs = map(lambda s: highlight(s, NasmLexer(), TerminalFormatter()), asm_instrs)
+                asm_instrs = [highlight(s, NasmLexer(), TerminalFormatter()) for s in asm_instrs]
 
             asm_instrs_str = " ; ".join(asm_instrs).replace("\n", "")
 
             if show_binary:
                 try:
-                    asm_bytes = ["%02x" % ord(b) for dinstr in gadget.instrs for b in dinstr.asm_instr.bytes]
+                    asm_bytes = ["%02x" % ord(b) for instr in gadget.instrs for b in instr.bytes]
                     asm_bytes_str = "".join(asm_bytes)
 
                     print("0x%08x: %32s | %s" % (gadget.address, asm_bytes_str, asm_instrs_str), file=f)
@@ -169,7 +168,7 @@ def print_gadgets_typed(gadgets, f, address_size, title):
             if gadget.address not in gadgets_desc:
                 gadgets_desc[gadget.address] = []
 
-            asm_instrs = [str(dinstr.asm_instr) for dinstr in gadget.instrs]
+            asm_instrs = [str(instr) for instr in gadget.instrs]
             asm_instrs_str = " ; ".join(asm_instrs).replace("\n", "")
 
             gadgets_desc[gadget.address] += [{
@@ -192,11 +191,11 @@ def print_gadgets_typed(gadgets, f, address_size, title):
         instrs_max = max(instrs)
 
         # Tile and table formats.
-        table_title_fmt = "# {0} ({1} gadget{2})"
+        table_title_fmt = "# {0} ({1} gadgets{2})"
         table_ruler_fmt = "{0}"
-        table_header_fmt = " {0:^%ds} | {1:^%ds} | {2:^%ds} | {3:^%ds} " % (address_size / 4 + 2, lhand_max + rhand_max + 4, mods_max, instrs_max)
+        table_header_fmt = " {0:^%ds} | {1:^%ds} | {2:^%ds} | {3:^%ds} " % (address_size // 4 + 2, lhand_max + rhand_max + 4, mods_max, instrs_max)
         table_footer_fmt = "{0}"
-        table_row_fmt = " 0x{addr:0%dx} | {lhand:>%ds} <- {rhand:<%ds} | {mods:<%ds} | {instrs} " % (address_size / 4, lhand_max, rhand_max, max(mods_max, len("Clobbered Registers")))
+        table_row_fmt = " 0x{addr:0%dx} | {lhand:>%ds} <- {rhand:<%ds} | {mods:<%ds} | {instrs} " % (address_size // 4, lhand_max, rhand_max, max(mods_max, len("Clobbered Registers")))
 
         table_title = table_title_fmt.format(GadgetType.to_string(ty), len(gadget_list), "" if len(gadget_list) == 1 else "s")
         table_header = table_header_fmt.format("Address", "Operation", "Clobbered Registers", "Instructions")
@@ -208,7 +207,7 @@ def print_gadgets_typed(gadgets, f, address_size, title):
         print(table_header,       file=f)
         print(table_ruler,        file=f)
 
-        # Pretty print each gadget.
+        # Pretty print each gadgets.
         for address in sorted(gadgets_desc.keys()):
             for gadget_desc in gadgets_desc[address]:
                 print(table_row_fmt.format(**gadget_desc), file=f)
@@ -297,17 +296,17 @@ def init_parser():
     parser.add_argument(
         "--show-binary",
         action="store_true",
-        help="Show binary code for each gadget.")
+        help="Show binary code for each gadgets.")
 
     parser.add_argument(
         "--show-classification",
         action="store_true",
-        help="Show classification for each gadget.")
+        help="Show classification for each gadgets.")
 
     parser.add_argument(
         "--show-invalid",
         action="store_true",
-        help="Show invalid gadget, i.e., gadgets that were classified but did not pass the verification process.")
+        help="Show invalid gadgets, i.e., gadgets that were classified but did not pass the verification process.")
 
     parser.add_argument(
         "--summary",
@@ -484,7 +483,7 @@ def main():
 
             diff = []
 
-            for addr in candidates_by_addr.keys():
+            for addr in candidates_by_addr:
                 if addr not in verified_by_addr and addr not in discarded_by_addr:
                     diff += candidates_by_addr[addr]
 

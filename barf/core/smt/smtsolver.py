@@ -22,9 +22,12 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+from __future__ import absolute_import
+
 import logging
 import re
 import subprocess
+import platform
 
 from barf.core.smt.smtsymbol import Bool
 
@@ -34,7 +37,10 @@ logger = logging.getLogger(__name__)
 def _check_solver_installation(solver):
     found = True
     try:
-        _ = subprocess.check_output(["which", solver])
+        if platform.system() == "Windows":
+            _ = subprocess.check_output(["where", solver])
+        else:
+            _ = subprocess.check_output(["which", solver])
     except subprocess.CalledProcessError as e:
         if e.returncode == 0x1:
             found = False
@@ -66,7 +72,7 @@ class Z3Solver(object):
             raise SmtSolverNotFound("{} solver is not installed".format(self._name))
 
     def _start_solver(self):
-        self._process = subprocess.Popen("z3 -smt2 -in", shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+        self._process = subprocess.Popen("z3 -smt2 -in", shell=True, bufsize=0, stdin=subprocess.PIPE, stdout=subprocess.PIPE, universal_newlines=True)
 
         # Set z3 declaration scopes.
         self._write("(set-option :global-decls false)")
@@ -74,6 +80,9 @@ class Z3Solver(object):
 
     def _stop_solver(self):
         if self._process:
+            self._process.stdin.close()
+            self._process.stdout.close()
+
             self._process.kill()
             self._process.wait()
 
@@ -174,7 +183,8 @@ class CVC4Solver(object):
 
     def _start_solver(self):
         self._process = subprocess.Popen("cvc4 --incremental --lang=smt2", shell=True,
-                                         stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+                                         bufsize=0, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                         universal_newlines=True)
 
         # Set CVC4 declaration scopes.
         self._write("(set-logic QF_AUFBV)")

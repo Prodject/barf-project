@@ -22,6 +22,8 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+from __future__ import absolute_import
+
 import os
 import unittest
 
@@ -29,15 +31,15 @@ from barf.arch import ARCH_ARM_MODE_ARM
 from barf.arch import ARCH_ARM_MODE_THUMB
 from barf.arch import ARCH_X86_MODE_32
 from barf.arch import ARCH_X86_MODE_64
-from barf.arch.arm.armbase import ArmArchitectureInformation
-from barf.arch.arm.armdisassembler import ArmDisassembler
-from barf.arch.arm.armtranslator import ArmTranslator
+from barf.arch.arm import ArmArchitectureInformation
+from barf.arch.arm.disassembler import ArmDisassembler
+from barf.arch.arm.translator import ArmTranslator
 from barf.arch.emulator import Emulator
-from barf.arch.x86.x86base import X86ArchitectureInformation
-from barf.arch.x86.x86disassembler import X86Disassembler
-from barf.arch.x86.x86translator import X86Translator
-from barf.core.bi import BinaryFile
-from barf.core.reil import ReilEmulator
+from barf.arch.x86 import X86ArchitectureInformation
+from barf.arch.x86.disassembler import X86Disassembler
+from barf.arch.x86.translator import X86Translator
+from barf.core.binary import BinaryFile
+from barf.core.reil.emulator.emulator import ReilEmulator
 
 
 def get_full_path(filename):
@@ -54,8 +56,8 @@ class EmulatorTests(unittest.TestCase):
         arch_mode = ARCH_X86_MODE_32
         arch_info = X86ArchitectureInformation(arch_mode)
         ir_emulator = ReilEmulator(arch_info)
-        disassembler = X86Disassembler(architecture_mode=ARCH_X86_MODE_32)
-        ir_translator = X86Translator(architecture_mode=ARCH_X86_MODE_32)
+        disassembler = X86Disassembler(ARCH_X86_MODE_32)
+        ir_translator = X86Translator(ARCH_X86_MODE_32)
 
         emu = Emulator(arch_info, ir_emulator, ir_translator, disassembler)
 
@@ -68,8 +70,8 @@ class EmulatorTests(unittest.TestCase):
         arch_mode = ARCH_X86_MODE_64
         arch_info = X86ArchitectureInformation(arch_mode)
         ir_emulator = ReilEmulator(arch_info)
-        disassembler = X86Disassembler(architecture_mode=ARCH_X86_MODE_64)
-        ir_translator = X86Translator(architecture_mode=ARCH_X86_MODE_64)
+        disassembler = X86Disassembler(ARCH_X86_MODE_64)
+        ir_translator = X86Translator(ARCH_X86_MODE_64)
 
         emu = Emulator(arch_info, ir_emulator, ir_translator, disassembler)
 

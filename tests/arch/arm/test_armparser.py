@@ -22,10 +22,12 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+from __future__ import absolute_import
+
 import unittest
 
 from barf.arch import ARCH_ARM_MODE_THUMB
-from barf.arch.arm.armparser import ArmParser
+from barf.arch.arm.parser import ArmParser
 
 
 class ArmParser32BitsTests(unittest.TestCase):
@@ -111,7 +113,7 @@ class ArmParser32BitsTests(unittest.TestCase):
             "strd r8, [r2, #0x2c]",
             "strh r2, [r5], #8",
 
-            #A3.12.1 (examples of load/store multiple)
+            # A3.12.1 (examples of load/store multiple)
             "stmfd r13, {r0 - r12, lr}",
             "ldmfd r13, {r0 - r12, pc}",
             "ldmia r0, {r5 - r8}",

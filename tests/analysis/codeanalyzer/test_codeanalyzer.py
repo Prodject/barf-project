@@ -22,13 +22,15 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
+from __future__ import absolute_import
+
 import unittest
 
 from barf.analysis.codeanalyzer import CodeAnalyzer
 from barf.arch import ARCH_X86_MODE_32
-from barf.arch.x86.x86base import X86ArchitectureInformation
-from barf.arch.x86.x86parser import X86Parser
-from barf.arch.x86.x86translator import X86Translator
+from barf.arch.x86 import X86ArchitectureInformation
+from barf.arch.x86.parser import X86Parser
+from barf.arch.x86.translator import X86Translator
 from barf.core.smt.smtsolver import Z3Solver as SmtSolver
 # from barf.core.smt.smtsolver import CVC4Solver as SmtSolver
 from barf.core.smt.smttranslator import SmtTranslator
@@ -45,9 +47,9 @@ class CodeAnalyzerTests(unittest.TestCase):
         self._smt_translator.set_arch_alias_mapper(self._arch_info.alias_mapper)
         self._smt_translator.set_arch_registers_size(self._arch_info.registers_size)
 
-        self._x86_parser = X86Parser(architecture_mode=ARCH_X86_MODE_32)
+        self._x86_parser = X86Parser(ARCH_X86_MODE_32)
 
-        self._x86_translator = X86Translator(architecture_mode=ARCH_X86_MODE_32)
+        self._x86_translator = X86Translator(ARCH_X86_MODE_32)
 
         self._code_analyzer = CodeAnalyzer(self._smt_solver, self._smt_translator, self._arch_info)
 

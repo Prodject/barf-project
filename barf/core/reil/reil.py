@@ -47,16 +47,15 @@ Instructions
     Data Transfer : LDM, STM, STR
     Conditional   : BISZ, JCC
     Other         : UNDEF, UNKN, NOP
+    Extensions    : SEXT, SDIV, SMOD
 
 """
+from __future__ import absolute_import
 
-# Display operands size in instruction
-show_size = True
+from past.builtins import long
 
 
-# TODO: Create module util and move this function there.
-def split_address(address):
-    return address >> 0x08, address & 0xff
+DISPLAY_SIZE = True     # Display operands size in instruction
 
 
 class ReilMnemonic(object):
@@ -65,36 +64,37 @@ class ReilMnemonic(object):
     """
 
     # Arithmetic Instructions
-    ADD   = 1
-    SUB   = 2
-    MUL   = 3
-    DIV   = 4
-    MOD   = 5
-    BSH   = 6
+    ADD = 1
+    SUB = 2
+    MUL = 3
+    DIV = 4
+    MOD = 5
+    BSH = 6
 
     # Bitwise Instructions
-    AND   = 7
-    OR    = 8
-    XOR   = 9
+    AND = 7
+    OR = 8
+    XOR = 9
 
     # Data Transfer Instructions
-    LDM   = 10
-    STM   = 11
-    STR   = 12
+    LDM = 10
+    STM = 11
+    STR = 12
 
     # Conditional Instructions
-    BISZ  = 13
-    JCC   = 14
+    BISZ = 13
+    JCC = 14
 
     # Other Instructions
-    UNKN  = 15
+    UNKN = 15
     UNDEF = 16
-    NOP   = 17
+    NOP = 17
 
     # Extensions
-    SEXT  = 18
-    SDIV  = 19
-    SMOD  = 20
+    SEXT = 18
+    SDIV = 19
+    SMOD = 20
+    SMUL = 21
 
     @staticmethod
     def to_string(mnemonic):
@@ -132,6 +132,7 @@ class ReilMnemonic(object):
             ReilMnemonic.SEXT: "sext",
             ReilMnemonic.SDIV: "sdiv",
             ReilMnemonic.SMOD: "smod",
+            ReilMnemonic.SMUL: "smul",
         }
 
         return strings[mnemonic]
@@ -172,6 +173,7 @@ class ReilMnemonic(object):
             "sext": ReilMnemonic.SEXT,
             "sdiv": ReilMnemonic.SDIV,
             "smod": ReilMnemonic.SMOD,
+            "smul": ReilMnemonic.SMUL,
         }
 
         return mnemonics[string]
@@ -209,6 +211,7 @@ REIL_MNEMONICS = (
     ReilMnemonic.SEXT,
     ReilMnemonic.SDIV,
     ReilMnemonic.SMOD,
+    ReilMnemonic.SMUL,
 )
 
 
@@ -298,6 +301,9 @@ class ReilInstruction(object):
         """
         self._comment = value
 
+    def __key(self):
+        return (self._mnemonic, self._operands, self._comment, self._address)
+
     def __str__(self):
         def print_oprnd(oprnd):
             oprnd_str = str(oprnd)
@@ -322,15 +328,21 @@ class ReilInstruction(object):
 
         mnemonic_str = ReilMnemonic.to_string(self._mnemonic)
 
-        if show_size:
+        if DISPLAY_SIZE:
             operands_str = ", ".join(map(print_oprnd, self._operands))
         else:
             operands_str = ", ".join(map(str, self._operands))
 
         return "%-5s [%s]" % (mnemonic_str, operands_str)
 
+    def __repr__(self):
+        if self._address:
+            return "{:#08x}:{:#02x} {}".format(self._address >> 8, self._address & 0xff, self.__str__())
+        else:
+            return self.__str__()
+
     def __hash__(self):
-        return hash(str(self))
+        return hash(self.__key())
 
     def __getstate__(self):
         state = {
@@ -374,12 +386,18 @@ class ReilOperand(object):
         """
         self._size = value
 
+    def __key(self):
+        return (self._size,)
+
     def __eq__(self, other):
         return type(other) is type(self) and \
                 self._size == other.size
 
     def __ne__(self, other):
         return not self.__eq__(other)
+
+    def __hash__(self):
+        return hash(self.__key())
 
     def __getstate__(self):
         state = {
@@ -417,6 +435,9 @@ class ReilImmediateOperand(ReilOperand):
 
         return self._immediate & 2**self._size-1
 
+    def __key(self):
+        return (self._size, self._immediate)
+
     def __str__(self):
         if not self._size:
             raise Exception("Operand size missing.")
@@ -429,6 +450,9 @@ class ReilImmediateOperand(ReilOperand):
         return type(other) is type(self) and \
                 self._size == other.size and \
                 self._immediate == other.immediate
+
+    def __hash__(self):
+        return hash(self.__key())
 
     def __getstate__(self):
         state = super(ReilImmediateOperand, self).__getstate__()
@@ -464,6 +488,9 @@ class ReilRegisterOperand(ReilOperand):
         """
         return self._name
 
+    def __key(self):
+        return (self._size, self._name)
+
     def __str__(self):
         return self._name
 
@@ -471,6 +498,9 @@ class ReilRegisterOperand(ReilOperand):
         return type(other) is type(self) and \
                 self._size == other.size and \
                 self._name == other.name
+
+    def __hash__(self):
+        return hash(self.__key())
 
     def __getstate__(self):
         state = super(ReilRegisterOperand, self).__getstate__()
@@ -493,396 +523,29 @@ class ReilEmptyOperand(ReilOperand):
     def __init__(self):
         super(ReilEmptyOperand, self).__init__(size=None)
 
+    def __key(self):
+        return (self._size, "EMPTY")
+
     def __str__(self):
         return "EMPTY"
 
     def __eq__(self, other):
         return type(other) is type(self)
 
-
-class ReilInstructionBuilder(object):
-
-    """REIL Instruction Builder. Generate REIL instructions, easily.
-    """
-
-    # Arithmetic Instructions
-    # ======================================================================== #
-    def gen_add(self, src1, src2, dst):
-        """Return an ADD instruction.
-        """
-        return self.build(ReilMnemonic.ADD, src1, src2, dst)
-
-    def gen_sub(self, src1, src2, dst):
-        """Return a SUB instruction.
-        """
-        return self.build(ReilMnemonic.SUB, src1, src2, dst)
-
-    def gen_mul(self, src1, src2, dst):
-        """Return a MUL instruction.
-        """
-        return self.build(ReilMnemonic.MUL, src1, src2, dst)
-
-    def gen_div(self, src1, src2, dst):
-        """Return a DIV instruction.
-        """
-        return self.build(ReilMnemonic.DIV, src1, src2, dst)
-
-    def gen_mod(self, src1, src2, dst):
-        """Return a MOD instruction.
-        """
-        return self.build(ReilMnemonic.MOD, src1, src2, dst)
-
-    def gen_bsh(self, src1, src2, dst):
-        """Return a BSH instruction.
-        """
-        return self.build(ReilMnemonic.BSH, src1, src2, dst)
-
-    # Bitwise Instructions
-    # ======================================================================== #
-    def gen_and(self, src1, src2, dst):
-        """Return an AND instruction.
-        """
-        return self.build(ReilMnemonic.AND, src1, src2, dst)
-
-    def gen_or(self, src1, src2, dst):
-        """Return an OR instruction.
-        """
-        return self.build(ReilMnemonic.OR, src1, src2, dst)
-
-    def gen_xor(self, src1, src2, dst):
-        """Return a XOR instruction.
-        """
-        return self.build(ReilMnemonic.XOR, src1, src2, dst)
-
-    # Data Transfer Instructions
-    # ======================================================================== #
-    def gen_ldm(self, src, dst):
-        """Return a LDM instruction.
-        """
-        return self.build(ReilMnemonic.LDM, src, ReilEmptyOperand(), dst)
-
-    def gen_stm(self, src, dst):
-        """Return a STM instruction.
-        """
-        return self.build(ReilMnemonic.STM, src, ReilEmptyOperand(), dst)
-
-    def gen_str(self, src, dst):
-        """Return a STR instruction.
-        """
-        return self.build(ReilMnemonic.STR, src, ReilEmptyOperand(), dst)
-
-    # Conditional Instructions
-    # ======================================================================== #
-    def gen_bisz(self, src, dst):
-        """Return a BISZ instruction.
-        """
-        return self.build(ReilMnemonic.BISZ, src, ReilEmptyOperand(), dst)
-
-    def gen_jcc(self, src, dst):
-        """Return a JCC instruction.
-        """
-        return self.build(ReilMnemonic.JCC, src, ReilEmptyOperand(), dst)
-
-    # Other Instructions
-    # ======================================================================== #
-    def gen_unkn(self):
-        """Return an UNKN instruction.
-        """
-        empty_reg = ReilEmptyOperand()
-
-        return self.build(ReilMnemonic.UNKN, empty_reg, empty_reg, empty_reg)
-
-    def gen_undef(self):
-        """Return an UNDEF instruction.
-        """
-        empty_reg = ReilEmptyOperand()
-
-        return self.build(ReilMnemonic.UNDEF, empty_reg, empty_reg, empty_reg)
-
-    def gen_nop(self):
-        """Return a NOP instruction.
-        """
-        empty_reg = ReilEmptyOperand()
-
-        return self.build(ReilMnemonic.NOP, empty_reg, empty_reg, empty_reg)
-
-    # Extensions
-    # ======================================================================== #
-    def gen_sext(self, src, dst):
-        """Return a SEXT instruction.
-        """
-        empty_reg = ReilEmptyOperand()
-
-        return self.build(ReilMnemonic.SEXT, src, empty_reg, dst)
-
-    def gen_sdiv(self, src1, src2, dst):
-        """Return a SDIV instruction.
-        """
-        return self.build(ReilMnemonic.SDIV, src1, src2, dst)
-
-    def gen_smod(self, src1, src2, dst):
-        """Return a SMOD instruction.
-        """
-        return self.build(ReilMnemonic.SMOD, src1, src2, dst)
-
-    # Auxiliary functions
-    # ======================================================================== #
-    def build(self, mnemonic, oprnd1, oprnd2, oprnd3):
-        """Return the specified instruction.
-        """
-        ins = ReilInstruction()
-
-        ins.mnemonic = mnemonic
-        ins.operands = [oprnd1, oprnd2, oprnd3]
-
-        return ins
+    def __hash__(self):
+        return hash(self.__key())
 
 
-class DualInstruction(object):
+class ReilLabel(object):
 
-    """Represents an assembler instruction paired with its IR
-    representation.
-
-    """
-
-    __slots__ = [
-        '_address',
-        '_asm_instr',
-        '_ir_instrs',
-    ]
-
-    def __init__(self, address, asm_instr, ir_instrs):
-
-        # Address of the assembler instruction.
-        self._address = address
-
-        # Assembler instruction.
-        self._asm_instr = asm_instr
-
-        # REIL translation of the assembler instruction. Note that one
-        # assembler instruction is mapped to more than one REIL
-        # instruction.
-        self._ir_instrs = ir_instrs
+    def __init__(self, name):
+        self._name = name
 
     @property
-    def address(self):
-        """Get instruction address.
+    def name(self):
+        """Get label name.
         """
-        return self._address
+        return self._name
 
-    @property
-    def asm_instr(self):
-        """Get assembly instruction.
-        """
-        return self._asm_instr
-
-    @property
-    def ir_instrs(self):
-        """Get IR representation of the assembly instruction.
-        """
-        return self._ir_instrs
-
-    def __eq__(self, other):
-        return self.address == other.address and \
-                self.asm_instr == other.asm_instr
-
-    def __ne__(self, other):
-        return not self.__eq__(other)
-
-    def __getstate__(self):
-        state = {
-            '_address': self._address,
-            '_asm_instr': self._asm_instr,
-            '_ir_instrs': self._ir_instrs
-        }
-
-        return state
-
-    def __setstate__(self, state):
-        self._address = state['_address']
-        self._asm_instr = state['_asm_instr']
-        self._ir_instrs = state['_ir_instrs']
-
-
-class ReilSequence(object):
-
-    """Reil instruction sequence.
-    """
-
-    def __init__(self):
-        self.__sequence = []
-        self.__next_seq_address = None
-
-    def append(self, instruction):
-        self.__sequence.append(instruction)
-
-    def get(self, index):
-        return self.__sequence[index]
-
-    def dump(self):
-        for instr in self.__sequence:
-            base_addr, index = split_address(instr.address)
-
-            print("{:08x}:{:02x}\t{}".format(base_addr, index, instr))
-
-    @property
-    def address(self):
-        return self.__sequence[0].address if self.__sequence else None
-
-    @property
-    def next_sequence_address(self):
-        return self.__next_seq_address
-
-    @next_sequence_address.setter
-    def next_sequence_address(self, address):
-        self.__next_seq_address = address
-
-    def __len__(self):
-        return len(self.__sequence)
-
-    def __iter__(self):
-        for instr in self.__sequence:
-            yield instr
-
-
-class ReilContainerInvalidAddressError(Exception):
-    pass
-
-
-class ReilContainer(object):
-
-    """Reil instruction container.
-    """
-
-    def __init__(self):
-        self.__container = {}
-
-    def add(self, sequence):
-        base_addr, _ = split_address(sequence.address)
-
-        if base_addr in self.__container.keys():
-            raise Exception("Invalid sequence")
-
-        self.__container[base_addr] = sequence
-
-    def fetch(self, address):
-        base_addr, index = split_address(address)
-
-        if base_addr not in self.__container.keys():
-            raise ReilContainerInvalidAddressError()
-
-        return self.__container[base_addr].get(index)
-
-    def get_next_address(self, address):
-        base_addr, index = split_address(address)
-
-        if base_addr not in self.__container.keys():
-            raise Exception("Invalid address.")
-
-        addr = address
-
-        if index < len(self.__container[base_addr]) - 1:
-            addr += 1
-        else:
-            addr = self.__container[base_addr].next_sequence_address
-
-        return addr
-
-    def dump(self):
-        for base_addr in sorted(self.__container.keys()):
-            self.__container[base_addr].dump()
-
-            print("-" * 80)
-
-    def __iter__(self):
-        for addr in sorted(self.__container.keys()):
-            for instr in self.__container[addr]:
-                yield instr
-
-
-def check_operands_size(instr, arch_size):
-    """Enforce operands' size."""
-
-    if instr.mnemonic in [ReilMnemonic.ADD, ReilMnemonic.SUB,
-                            ReilMnemonic.MUL, ReilMnemonic.DIV,
-                            ReilMnemonic.MOD, ReilMnemonic.BSH,
-                            ReilMnemonic.AND, ReilMnemonic.OR,
-                            ReilMnemonic.XOR]:
-        # operand0 : Source 1 (Literal or register)
-        # operand1 : Source 2 (Literal or register)
-        # operand2 : Destination register
-
-        # Check that source operands have the same size.
-        assert instr.operands[0].size == instr.operands[1].size, \
-            "Invalid operands size: %s" % instr
-
-    elif instr.mnemonic in [ReilMnemonic.LDM]:
-        # operand0 : Source address (Literal or register)
-        # operand1 : Empty register
-        # operand2 : Destination register
-
-        assert instr.operands[0].size == arch_size, \
-            "Invalid operands size: %s" % instr
-
-    elif instr.mnemonic in [ReilMnemonic.STM]:
-        # operand0 : Value to store (Literal or register)
-        # operand1 : Empty register
-        # operand2 : Destination address (Literal or register)
-
-        assert instr.operands[2].size == arch_size, \
-            "Invalid operands size: %s" % instr
-
-    elif instr.mnemonic in [ReilMnemonic.STR]:
-        # operand0 : Value to store (Literal or register)
-        # operand1 : Empty register
-        # operand2 : Destination register
-
-        pass
-
-    elif instr.mnemonic in [ReilMnemonic.BISZ]:
-        # operand0 : Value to compare (Literal or register)
-        # operand1 : Empty register
-        # operand2 : Destination register
-
-        pass
-
-    elif instr.mnemonic in [ReilMnemonic.JCC]:
-        # operand0 : Condition (Literal or register)
-        # operand1 : Empty register
-        # operand2 : Destination register
-
-        # FIX: operand2.size should be arch_size + 1 byte
-
-        assert instr.operands[2].size == arch_size + 8, \
-            "Invalid operands size: %s" % instr
-
-        pass
-
-    elif instr.mnemonic in [ReilMnemonic.UNKN]:
-        # operand0 : Empty register
-        # operand1 : Empty register
-        # operand2 : Empty register
-
-        pass
-
-    elif instr.mnemonic in [ReilMnemonic.UNDEF]:
-        # operand0 : Empty register
-        # operand1 : Empty register
-        # operand2 : Destination register
-
-        pass
-
-    elif instr.mnemonic in [ReilMnemonic.NOP]:
-        # operand0 : Empty register
-        # operand1 : Empty register
-        # operand2 : Empty register
-
-        pass
-
-    elif instr.mnemonic in [ReilMnemonic.SEXT]:
-        # operand0 : Value to store (Literal or register)
-        # operand1 : Empty register
-        # operand2 : Destination register
-
-        assert instr.operands[0].size <= instr.operands[2].size, \
-            "Invalid operands size: %s" % instr
+    def __str__(self):
+        return self._name + ":"

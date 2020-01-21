@@ -1,5 +1,8 @@
 #! /usr/bin/env python
 
+from __future__ import absolute_import
+from __future__ import print_function
+
 import logging
 
 from barf import BARF
@@ -20,29 +23,29 @@ def check_path_satisfiability(code_analyzer, path, start_address):
         for bb_curr, bb_next in zip(path[:-1], path[1:]):
             logger.info("BB @ {:#x}".format(bb_curr.address))
 
-            # For each dual instruction...
-            for dinstr in bb_curr:
+            # For each instruction...
+            for instr in bb_curr:
                 # If the start instruction have not been found, keep
                 # looking...
                 if not start_instr_found:
-                    if dinstr.address == start_address:
+                    if instr.address == start_address:
                         start_instr_found = True
                     else:
                         continue
 
-                logger.info("{:#x} {}".format(dinstr.address, dinstr.asm_instr))
+                logger.info("{:#x} {}".format(instr.address, instr))
 
                 # For each REIL instruction...
-                for reil_instr in dinstr.ir_instrs:
+                for reil_instr in instr.ir_instrs:
                     logger.info("{:#x} {:02d} {}".format(reil_instr.address >> 0x8, reil_instr.address & 0xff,
                                                          reil_instr))
 
                     if reil_instr.mnemonic == ReilMnemonic.JCC:
                         # Check that the JCC is the last instruction of
                         # the basic block (skip CALL instructions.)
-                        if dinstr.address + dinstr.asm_instr.size - 1 != bb_curr.end_address:
-                            logger.error("Unexpected JCC instruction: {:#x} {} ({})".format(dinstr.address,
-                                                                                            dinstr.asm_instr,
+                        if instr.address + instr.size - 1 != bb_curr.end_address:
+                            logger.error("Unexpected JCC instruction: {:#x} {} ({})".format(instr.address,
+                                                                                            instr,
                                                                                             reil_instr))
 
                             # raise Exception()
@@ -130,7 +133,7 @@ if __name__ == "__main__":
     for bb_path in cfg.all_simple_bb_paths(start_addr, end_addr):
         print("[+] Path: {0}".format(" -> ".join([hex(bb.address) for bb in bb_path])))
 
-        if check_path_satisfiability(barf.code_analyzer, bb_path, start_addr):
+        if check_path_satisfiability(barf.code_analyzer, list(bb_path), start_addr):
             print("[+] Satisfiable! Possible assignments:")
 
             ebp = barf.code_analyzer.get_register_expr("ebp", mode="post")

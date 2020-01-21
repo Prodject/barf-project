@@ -22,17 +22,20 @@
 # OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 # OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-from barf.analysis.basicblock import CFGRecoverer
-from barf.analysis.basicblock import ControlFlowGraph
-from barf.analysis.basicblock import RecursiveDescent
-from barf.arch.x86.x86base import X86ArchitectureInformation
-from barf.arch.x86.x86disassembler import X86Disassembler
-from barf.arch.x86.x86translator import X86Translator
-from barf.core.reil import ReilContainer
+from __future__ import absolute_import
+from __future__ import print_function
+
+from barf.analysis.graphs import CFGRecoverer
+from barf.analysis.graphs import ControlFlowGraph
+from barf.analysis.graphs import RecursiveDescent
+from barf.arch.x86 import X86ArchitectureInformation
+from barf.arch.x86.disassembler import X86Disassembler
+from barf.arch.x86.translator import X86Translator
 from barf.core.reil import ReilMnemonic
 from barf.core.reil import ReilRegisterOperand
-from barf.core.reil import ReilSequence
-from barf.core.reil import split_address
+from barf.core.reil.container import ReilContainer
+from barf.core.reil.container import ReilSequence
+from barf.core.reil.helpers import split_address
 
 
 def is_conditional_jump(instruction):
@@ -46,8 +49,8 @@ class ReilContainerBuilder(object):
         self.__binary = binary
         self.__arch_mode = self.__binary.architecture_mode
         self.__arch = X86ArchitectureInformation(self.__arch_mode)
-        self.__disassembler = X86Disassembler(architecture_mode=self.__arch_mode)
-        self.__translator = X86Translator(architecture_mode=self.__arch_mode)
+        self.__disassembler = X86Disassembler(self.__arch_mode)
+        self.__translator = X86Translator(self.__arch_mode)
         self.__bb_builder = CFGRecoverer(RecursiveDescent(self.__disassembler, self.__binary.text_section,
                                                           self.__translator, self.__arch))
 
@@ -72,8 +75,8 @@ class ReilContainerBuilder(object):
         asm_instrs = []
 
         for bb in cfg.basic_blocks:
-            for dual_instr in bb:
-                asm_instrs += [dual_instr.asm_instr]
+            for instr in bb:
+                asm_instrs += [instr]
 
         reil_container = self.__translate(asm_instrs, reil_container)
 
@@ -109,8 +112,8 @@ class ReilContainerEx(object):
         self.__binary = binary
         self.__arch_mode = self.__binary.architecture_mode
         self.__arch = X86ArchitectureInformation(self.__arch_mode)
-        self.__disassembler = X86Disassembler(architecture_mode=self.__arch_mode)
-        self.__translator = X86Translator(architecture_mode=self.__arch_mode)
+        self.__disassembler = X86Disassembler(self.__arch_mode)
+        self.__translator = X86Translator(self.__arch_mode)
         self.__bb_builder = CFGRecoverer(RecursiveDescent(self.__disassembler, self.__binary.text_section,
                                                           self.__translator, self.__arch))
 
@@ -131,8 +134,8 @@ class ReilContainerEx(object):
         asm_instrs = []
 
         for bb in cfg.basic_blocks:
-            for dual_instr in bb:
-                asm_instrs += [dual_instr.asm_instr]
+            for instr in bb:
+                asm_instrs += [instr]
 
         reil_container = self.__translate(asm_instrs, reil_container)
 
@@ -172,7 +175,7 @@ class ReilContainerEx(object):
     def fetch(self, address):
         base_addr, index = split_address(address)
 
-        if base_addr not in self.__container.keys():
+        if base_addr not in self.__container:
             self.__resolve_address(base_addr)
 
         return self.__container[base_addr].get(index)
@@ -180,7 +183,7 @@ class ReilContainerEx(object):
     def get_next_address(self, address):
         base_addr, index = split_address(address)
 
-        if base_addr not in self.__container.keys():
+        if base_addr not in self.__container:
             raise Exception("Invalid address.")
 
         addr = address
